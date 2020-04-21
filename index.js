@@ -6,30 +6,75 @@ addEventListener('fetch', event => {
  * @param {Request} request
  */
 async function handleRequest(request) {
-  let response = await fetch(`https://cfw-takehome.developers.workers.dev/api/variants`);
-  let results = await decodeResponse(response);
-  results = results.result;
+  let cookie = request.headers.get('cookie');
+  if (cookie && cookie.includes(`Biscuit=1`)) {
+    let results = await getVariants();
 
-  if (results.variants == undefined) {
-    return new Response(`Error fetching data from the URL`, {
-      headers: { 'content-type': 'text/plain', status: 500 },
+    if (results.variants == undefined) {
+      return new Response(`Error fetching data from the URL`, {
+        headers: { 'content-type': 'text/plain', status: 500 },
+      })
+    }
+
+    let responseFromUrl = await getResponseFromUrl(results.variants, 1);
+    
+    return new Response(responseFromUrl.result, {
+      headers: { 'content-type': responseFromUrl.contentType, status: 200 },
     })
-  }
+  } else if (cookie && cookie.includes(`Biscuit=0`)) {
+    let results = await getVariants();
 
-  let responseFromUrl = await getResponseFromUrl(results.variants)
-  
-  return new Response(responseFromUrl.result, {
-    headers: { 'content-type': responseFromUrl.contentType, status: 200 },
-  })
+    if (results.variants == undefined) {
+      return new Response(`Error fetching data from the URL`, {
+        headers: { 'content-type': 'text/plain', status: 500 },
+      })
+    }
+
+    let responseFromUrl = await getResponseFromUrl(results.variants, 0);
+    
+    return new Response(responseFromUrl.result, {
+      headers: { 'content-type': responseFromUrl.contentType, status: 200 },
+    })
+  } else {
+    let results = await getVariants();
+
+    if (results.variants == undefined) {
+      return new Response(`Error fetching data from the URL`, {
+        headers: { 'content-type': 'text/plain', status: 500 },
+      })
+    }
+
+    let responseFromUrl = await getResponseFromUrl(results.variants, undefined);
+    
+    
+    let response = new Response(responseFromUrl.result, {
+      headers: { 'content-type': responseFromUrl.contentType, status: 200 },
+    })
+    response.headers.append('Set-Cookie', `Biscuit=${responseFromUrl.choice}; path=/`)
+    return response;
+  }
 }
 
 /**
+ * Getting variants 
+ */
+async function getVariants() {
+  let response = await fetch(`https://cfw-takehome.developers.workers.dev/api/variants`);
+  let results = await decodeResponse(response);
+  return results.result;
+}
+/**
  * Returns parsed data fetched from list obtained from /api/variants
  * @param {URL List from API} urlList
+ * @param {URL number} num
  */
-async function getResponseFromUrl(urlList) {
-  /** Randomising between 2 variables */
-  let choice = Math.round(Math.random());
+async function getResponseFromUrl(urlList, num) {
+  let choice;
+  if (num == undefined) {
+    choice = Math.round(Math.random());
+  } else {
+    choice = num;
+  }
   let response;
  
   if (choice == 0) {
@@ -39,7 +84,10 @@ async function getResponseFromUrl(urlList) {
   }
 
   response = await decodeResponse(response);
-  return response;
+  return {
+    choice,
+    ...response,
+  };
 }
 
 /** Get modified data from URL obtained in the list (Task 2) 
@@ -90,6 +138,7 @@ async function decodeResponse(response) {
   }
 }
 
+/** Rewriting url href and content */
 let rewriter = new HTMLRewriter()
   .on('a#url', {
     element(element) {
