@@ -1,0 +1,7 @@
+name = "internship-application"
+type = "javascript"
+account_id = ""
+workers_dev = true
+route = ""
+zone_id = ""
+RUST_BACKTRACE=1
