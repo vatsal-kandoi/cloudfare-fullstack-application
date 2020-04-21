@@ -17,8 +17,7 @@ async function handleRequest(request) {
   }
 
   let responseFromUrl = await getResponseFromUrl(results.variants)
-  console.log(responseFromUrl);
-
+  
   return new Response(responseFromUrl.result, {
     headers: { 'content-type': responseFromUrl.contentType, status: 200 },
   })
@@ -32,13 +31,30 @@ async function getResponseFromUrl(urlList) {
   /** Randomising between 2 variables */
   let choice = Math.round(Math.random());
   let response;
+ 
   if (choice == 0) {
-    response = await fetch(urlList[0]);
+    response = await getModifiedData(urlList[0]);
   } else {
-    response = await fetch(urlList[1]);
+    response = await getModifiedData(urlList[1]);
   }
 
   response = await decodeResponse(response);
+  return response;
+}
+
+/** Get modified data from URL obtained in the list (Task 2) 
+ *  @param {URL obtained from variants} url
+ */
+async function getModifiedData(url) {
+  let response = await fetch(url)
+  
+  let { headers } = response;  
+  let contentType = headers.get('content-type');
+  
+  if (contentType.includes('text/html')) {
+    return rewriter.transform(response);
+  }
+
   return response;
 }
 
@@ -73,3 +89,17 @@ async function decodeResponse(response) {
     };
   }
 }
+
+let rewriter = new HTMLRewriter()
+  .on('a#url', {
+    element(element) {
+      let attribute = element.getAttribute('href')
+      if (attribute) {
+        element.setAttribute(
+          'href',
+          attribute.replace('https://cloudflare.com', 'https://www.vatsalkandoi.tech'),
+        )
+      }
+      element.setInnerContent(`<p>Check out my portfolio</p>`,{ html: true });
+    },
+  })
